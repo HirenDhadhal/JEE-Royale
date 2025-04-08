@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  email     String  @unique
+  name      String?
+  password  String
+  createdAt DateTime
+  UserTestScores UserTestScores[]
+  GlobalUserTestScores GlobalUserTestScores[]
+  UserProfileStats UserProfileStats?
+}
+
+//total_questions and total_marks will be calculated manually
+//should starTime and endTime be there for a single question_id ??
+//add subject + topic ?
+model Test {
+  id        Int     @id @default(autoincrement())
+  question_id Int 
+  scorable_test Boolean
+  StartTime DateTime
+  EndTime DateTime
+  createdAt DateTime
+  question Questions @relation(fields: [id], references: [id])
+  UserTestScores UserTestScores[]
+  GlobalUserTestScores GlobalUserTestScores[]
+}
+
+model Questions {
+  id    Int     @id @default(autoincrement())
+  question_text   String
+  option_1 String
+  option_1_id     Int
+  option_2 String
+  option_2_id     Int
+  option_3 String
+  option_3_id     Int
+  option_4 String
+  option_4_id     Int
+  correct_option_id Int
+  question_score     Int
+  test Test[]
+  UserTestScores UserTestScores[]
+}
+
+model UserTestScores {
+  user_id Int
+  test_id Int
+  question_id Int
+  attempted_option_id Int
+  score Int
+  user User   @relation(fields: [user_id], references: [id])
+  test Test   @relation(fields: [test_id], references: [id])
+  question Questions @relation(fields: [question_id], references: [id])
+
+  @@id([user_id, test_id, question_id])
+}
+
+model GlobalUserTestScores {
+  test_id Int
+  user_id Int
+  total_marks Int
+  user_scored_marks Int
+  delta_change Int
+  user User   @relation(fields: [user_id], references: [id])
+  test Test   @relation(fields: [test_id], references: [id])
+  @@id([user_id, test_id])
+}
+
+model UserProfileStats {
+  user_id Int
+  league_name String
+  rating Int
+  total_tests_taken Int
+  last_five_tests Json
+  user User?   @relation(fields: [user_id], references: [id])
+  @@id([user_id])
+}
