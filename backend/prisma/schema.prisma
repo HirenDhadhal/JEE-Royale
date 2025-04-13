@@ -46,6 +46,7 @@ model Questions {
   option_4_id     Int
   correct_option_id Int
   question_score     Int
+  subject String
   test Test[]
   UserTestScores UserTestScores[]
 }

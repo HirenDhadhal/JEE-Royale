@@ -1,20 +1,29 @@
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
+import { createClient } from 'redis';
+import { connectToRedis, getLeague } from './utils/utils';
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 const prisma = new PrismaClient();
+const redisClient = createClient();
+connectToRedis(redisClient);
 
 app.get('/api/signup', async (req, res) => {});
 app.get('/api/signin', async (req, res) => {});
 
-app.get('/api/start-test', (req, res) => {
-  //SEARCH and MATCH functionality
-  //search for other 99 players and assign them this test_id
-  //CREATE all questions for a new test_id
-  //send these questions to all the users in the test
+app.post('/api/start-test', async (req, res) => {
+  const user_id = req.body.user_id;
+  const rating = req.body.rating;
+  const leagueName = getLeague(rating);
+
+  //add the user in Redis queue for matchmaking
+  await redisClient.zAdd(`matchmaking:${leagueName}`, rating, user_id);
+
+  //Worker will macth user with other 99 users and then create a test for single test_id with all questions
+  //Implement POLLING below and as soon as we get the test_id, load all questions from that test_id
 });
 
 app.post('/api/:test_id/:user_id', async (req, res) => {
@@ -75,6 +84,7 @@ app.post('/api/create-question', async (req, res) => {
   const option_4 = req.body.option4;
   const option_4_id = 4;
   const correct_option_id = parseInt(req.body.correct_option);
+  const subject = req.body.subject;
   const question_score = parseInt(req.body.score);
 
   //generate the ids for the ques, options, answer
@@ -93,6 +103,7 @@ app.post('/api/create-question', async (req, res) => {
         option_4_id,
         correct_option_id,
         question_score,
+        subject,
       },
     });
 

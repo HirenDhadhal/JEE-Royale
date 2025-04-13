@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "worker",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -9,17 +9,14 @@
   "author": "",
   "license": "ISC",
   "description": "",
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "typescript": "^5.8.2"
-  },
   "dependencies": {
-    "@prisma/client": "^6.5.0",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "prisma": "^6.5.0",
+    "express": "^5.1.0",
     "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
   }
 }
