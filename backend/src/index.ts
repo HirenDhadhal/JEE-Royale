@@ -32,7 +32,7 @@ app.post('/api/start-test', async (req, res) => {
     status = currentStatus!;
   }
 
-  const testId = await redisClient.hGet(`user:${user_id}`, 'testId');
+  const testId = await redisClient.hGet(`user_status:${user_id}`, 'testId');
 
   //load all questions related to this test_id and send to the user as response
 });
