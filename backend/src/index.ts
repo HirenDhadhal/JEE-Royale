@@ -22,8 +22,19 @@ app.post('/api/start-test', async (req, res) => {
   //add the user in Redis queue for matchmaking
   await redisClient.zAdd(`matchmaking:${leagueName}`, rating, user_id);
 
-  //Worker will macth user with other 99 users and then create a test for single test_id with all questions
+  //Worker will match user with other 99 users and then create a test for single test_id with all questions
+
   //Implement POLLING below and as soon as we get the test_id, load all questions from that test_id
+  //Constantly check for in redis if the user is assigned a test or not
+  let status = 'waiting';
+  while (status != 'matched') {
+    const currentStatus = await redisClient.hGet(`user:${user_id}`, 'status');
+    status = currentStatus!;
+  }
+
+  const testId = await redisClient.hGet(`user:${user_id}`, 'testId');
+
+  //load all questions related to this test_id and send to the user as response
 });
 
 app.post('/api/:test_id/:user_id', async (req, res) => {

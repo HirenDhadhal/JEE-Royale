@@ -3,6 +3,9 @@ export async function connectToRedis(redisClient: any) {
   await redisClient.connect();
 }
 
+//TODO
+//function to recalculate League of a user whenever their Rating-delta changes
+
 export async function getLeague(userRating: number) {
   let leagueName = 'Newbie';
 
@@ -19,8 +22,6 @@ export async function getLeague(userRating: number) {
     leagueName = 'International GrandMaster GrandMaster';
   else if (userRating >= 3000) leagueName = 'Legendary GrandMaster';
 }
-
-//function to recalculate League of a user whenever their Rating-delta changes
 
 // The worker will run every 1-2 seconds, scan every league we have, find the number of active users searching for a match.
 // Create new match_ids as per the queue number in that league only if there are no existing open match_ids which have less than 100 players. Also, track the time a single match_id has been open.
