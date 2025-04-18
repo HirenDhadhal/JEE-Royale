@@ -22,15 +22,16 @@ model User {
 //should starTime and endTime be there for a single question_id ??
 //add subject + topic ?
 model Test {
-  id        Int     @id @default(autoincrement())
+  // id        Int     @id @default(autoincrement())
+  test_id   Int
   question_id Int 
   scorable_test Boolean
   StartTime DateTime
   EndTime DateTime
   createdAt DateTime
-  question Questions @relation(fields: [id], references: [id])
+  question Questions @relation(fields: [question_id], references: [id])
   UserTestScores UserTestScores[]
-  GlobalUserTestScores GlobalUserTestScores[]
+  @@id([test_id, question_id])
 }
 
 model Questions {
@@ -58,9 +59,9 @@ model UserTestScores {
   attempted_option_id Int
   score Int
   user User   @relation(fields: [user_id], references: [id])
-  test Test   @relation(fields: [test_id], references: [id])
+  test Test   @relation(fields: [test_id, question_id], references: [test_id, question_id])
   question Questions @relation(fields: [question_id], references: [id])
-
+  globalUserTestScores GlobalUserTestScores @relation(fields: [user_id, test_id], references: [user_id, test_id])
   @@id([user_id, test_id, question_id])
 }
 
@@ -70,8 +71,9 @@ model GlobalUserTestScores {
   total_marks Int
   user_scored_marks Int
   delta_change Int
+  Rank  Int
   user User   @relation(fields: [user_id], references: [id])
-  test Test   @relation(fields: [test_id], references: [id])
+  userTestScores UserTestScores[]
   @@id([user_id, test_id])
 }
 

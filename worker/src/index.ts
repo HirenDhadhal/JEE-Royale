@@ -173,6 +173,12 @@ async function runMatchMakingWorker() {
           testId: new_match_id,
         });
       }
+
+      //HASH for checking if all questions for current test_id are created or not
+      await redisClient.hSet(`test_created:${new_match_id}`, {
+        questions_created: 'false',
+      });
+
       await redisClient.hSet(`match_status:${new_match_id}`, {
         status: 'ready',
         readyAt: Date.now(),

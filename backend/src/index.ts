@@ -2,13 +2,18 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
-import { connectToRedis, getLeague } from './utils/utils';
+import {
+  connectToRedis,
+  createdQuestionsForTest,
+  getLeague,
+} from './utils/utils';
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 const prisma = new PrismaClient();
 const redisClient = createClient();
+export { prisma, redisClient };
 connectToRedis(redisClient);
 
 app.get('/api/signup', async (req, res) => {});
@@ -33,11 +38,83 @@ app.post('/api/start-test', async (req, res) => {
   }
 
   const testId = await redisClient.hGet(`user_status:${user_id}`, 'testId');
+  const testId_int = parseInt(testId!);
 
   //load all questions related to this test_id and send to the user as response
+  let testId_questions_created = createdQuestionsForTest(testId_int);
+
+  res.send(testId_questions_created);
 });
 
-app.post('/api/:test_id/:user_id', async (req, res) => {
+app.post('/api/:test_id/:user_id/save-answers', async (req, res) => {
+  const user_id = req.params.user_id;
+  const test_id = req.params.test_id;
+  const attempts = req.body.attempts;
+
+  try {
+    //fetch all the responses marked till now from Redis and store in DB
+    await redisClient.hSet(`test_attempt:${test_id}:${user_id}`, attempts);
+    res.status(200).json({ message: 'Answers saved/updated successfully' });
+  } catch (err) {
+    console.error('Error saving answer in Redis: ', err);
+    res.status(500).json({ message: 'Error saving answers' });
+  }
+});
+
+app.post('/api/:test_id/:user_id/end-test', async (req, res) => {
+  //TODO-BEFORE THIS WE SHOULD SAVE ALL ANSWERS MARKED BEFORE ENDING TEST INTO REDIS
+  //Fetch all answer for the test_id + user_id combination from Redis
+  const user_id = req.params.user_id;
+  const test_id = req.params.test_id;
+
+  try {
+    // const redisKey = `test_attempt:${test_id}:${user_id}`;
+
+    // Fetch all question attempts for this user in the test
+    // const attempts = await redisClient.hGetAll(redisKey);
+
+    //restructure them and store in DB
+    const questionIds = await redisClient.hKeys(
+      `test_attempt:${test_id}:${user_id}`
+    );
+
+    //for each question_id, fetch the marked_optin_id, calculate score and update in the DB [UserTestScores] table
+    const optionIds = await redisClient.hmGet(
+      `test_attempt:${test_id}:${user_id}`,
+      questionIds
+    );
+
+    questionIds.map(async (qId, idx) => {
+      const correct_option_id = await redisClient.hGet(
+        `test_answers:${test_id}`,
+        qId
+      );
+      const selected_option_id = parseInt(optionIds[idx]);
+      await prisma.userTestScores.create({
+        data: {
+          user_id: parseInt(user_id),
+          test_id: parseInt(test_id),
+          question_id: parseInt(qId),
+          attempted_option_id: selected_option_id,
+          score: selected_option_id === parseInt(correct_option_id!) ? 4 : 0,
+        },
+      });
+
+      res.status(200).send('Answers saved successfully in Database');
+
+      //TODO- Trigger a function which will recalculate the rating change [Detla] for each user in current testID
+      //and store it in DB [GlobalUserTestScores] table
+    });
+  } catch (err) {
+    console.error(
+      'Error fetching attempts from Redis and storing in DB: ',
+      err
+    );
+    res.status(500).json({ message: 'Error ending test' });
+  }
+});
+
+app.post('/api/:test_id/:user_id/mark-answers-db', async (req, res) => {
   //save the answers marked for some questions if any
   const markedAnswers: [] = req.body.responses;
 
