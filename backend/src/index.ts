@@ -16,7 +16,9 @@ const redisClient = createClient();
 export { prisma, redisClient };
 connectToRedis(redisClient);
 
-app.get('/api/signup', async (req, res) => {});
+app.get('/api/signup', async (req, res) => {
+  //Add the entry in User table and UseProfileStats table
+});
 app.get('/api/signin', async (req, res) => {});
 
 app.post('/api/start-test', async (req, res) => {
@@ -32,6 +34,8 @@ app.post('/api/start-test', async (req, res) => {
   //Implement POLLING below and as soon as we get the test_id, load all questions from that test_id
   //Constantly check for in redis if the user is assigned a test or not
   let status = 'waiting';
+
+  //TODO- Use setTimeOut here rather than while loop
   while (status != 'matched') {
     const currentStatus = await redisClient.hGet(`user:${user_id}`, 'status');
     status = currentStatus!;
@@ -271,9 +275,72 @@ app.post('/api/all-tests/:user_id/:test_id', async (req, res) => {
   }
 });
 
-app.get('/api/leaderboard', (req, res) => {
-  //fetch top 20 rows from the LEADERBOARD table
-  //LEADERBOARD table should update data every 5-7min
+//  todo
+app.get('/api/leaderboard', async (req, res) => {
+  const raw_leaderboardData = await redisClient.get('cached_leaderboard');
+  const cachedleaderboardData = raw_leaderboardData
+    ? JSON.parse(raw_leaderboardData)
+    : [];
+
+  if (cachedleaderboardData.length !== 0) {
+    res.send(cachedleaderboardData);
+  }
+
+  //LEADERBOARD table should update data every 10min
+  const allUserRatings = await prisma.userProfileStats.findMany({
+    select: {
+      user_id: true,
+      rating: true,
+      league_name: true,
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  //Re-calculate the Leaderboard ranks in Redis
+  for (const { user_id, rating, league_name, user } of allUserRatings) {
+    if (!user || !user.name) continue;
+
+    // 1. Add to global ranking ZSET
+    await redisClient.zAdd('global_ranking', {
+      score: rating,
+      value: user_id.toString(),
+    });
+
+    // 2. Store metadata in user hash
+    await redisClient.hSet(`user_metadata:${user_id}`, {
+      name: user.name,
+      league_name,
+      rating: rating.toString(),
+    });
+  }
+
+  const leaderboardData = [];
+
+  for (const { user_id } of allUserRatings) {
+    const uid = user_id.toString();
+    const rank = await redisClient.zRevRank('global_ranking', uid);
+
+    const metadata = await redisClient.hGetAll(`user_metadata:${uid}`);
+
+    if (!rank || !metadata.name) continue;
+
+    leaderboardData.push({
+      user_id: uid,
+      rank: rank + 1,
+      name: metadata.name,
+      rating: parseInt(metadata.rating),
+    });
+  }
+
+  await redisClient.set('cached_leaderboard', JSON.stringify(leaderboardData), {
+    EX: 600, // expires in 10 minutes
+  });
+
+  res.send(leaderboardData);
 });
 
 app.listen(3000, () => {
